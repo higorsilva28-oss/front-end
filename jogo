@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Space Shooter</title>
+
+<style>
+    * {
+        box-sizing: border-box;
+    }
+
+    body {
+        margin: 0;
+        background: #050510;
+        color: white;
+        font-family: Arial, sans-serif;
+        text-align: center;
+        overflow: hidden;
+    }
+
+    h1 {
+        color: #00eaff;
+        margin: 10px;
+    }
+
+    #info {
+        font-size: 20px;
+        margin-bottom: 8px;
+    }
+
+    #game {
+        position: relative;
+        width: 800px;
+        height: 550px;
+        max-width: 95vw;
+        max-height: 75vh;
+        margin: auto;
+        overflow: hidden;
+        border: 3px solid #00eaff;
+        border-radius: 12px;
+        background:
+            radial-gradient(circle, #222 1px, transparent 1px);
+        background-size: 35px 35px;
+        cursor: crosshair;
+    }
+
+    #player {
+        position: absolute;
+        width: 55px;
+        height: 55px;
+        background: #00eaff;
+        clip-path: polygon(50% 0%, 100% 100%, 50% 75%, 0% 100%);
+        bottom: 25px;
+        left: calc(50% - 27px);
+        z-index: 5;
+    }
+
+    .enemy {
+        position: absolute;
+        width: 45px;
+        height: 45px;
+        background: #ff1744;
+        border-radius: 50%;
+        border: 4px solid #ff718b;
+        box-shadow: 0 0 15px #ff1744;
+        z-index: 3;
+    }
+
+    .bullet {
+        position: absolute;
+        width: 7px;
+        height: 18px;
+        background: #ffff00;
+        border-radius: 5px;
+        box-shadow: 0 0 10px yellow;
+        z-index: 4;
+    }
+
+    #gameOver {
+        display: none;
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, .85);
+        z-index: 20;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+    }
+
+    #gameOver h2 {
+        color: #ff1744;
+        font-size: 45px;
+        margin: 10px;
+    }
+
+    button {
+        padding: 14px 25px;
+        border: none;
+        border-radius: 8px;
+        background: #00eaff;
+        color: #001014;
+        font-size: 18px;
+        font-weight: bold;
+        cursor: pointer;
+    }
+
+    button:hover {
+        background: #00a8bd;
+    }
+
+    #instructions {
+        margin: 10px;
+        color: #aaa;
+    }
+</style>
+</head>
+
+<body>
+
+<h1>🚀 SPACE SHOOTER</h1>
+
+<div id="info">
+    Pontos: <span id="score">0</span>
+    &nbsp; | &nbsp;
+    Vidas: <span id="lives">3</span>
+</div>
+
+<div id="game">
+
+    <div id="player"></div>
+
+    <div id="gameOver">
+        <h2>GAME OVER</h2>
+        <p>Pontuação: <span id="finalScore">0</span></p>
+        <button onclick="restart()">Jogar novamente</button>
+    </div>
+
+</div>
+
+<div id="instructions">
+    🖱️ Mova o mouse para mirar • Clique para atirar
+</div>
+
+<script>
+
+const game = document.getElementById("game");
+const player = document.getElementById("player");
+
+const scoreText = document.getElementById("score");
+const livesText = document.getElementById("lives");
+const finalScore = document.getElementById("finalScore");
+const gameOverScreen = document.getElementById("gameOver");
+
+let score = 0;
+let lives = 3;
+let gameRunning = true;
+
+let playerX = 375;
+let bullets = [];
+let enemies = [];
+
+/* -------------------------
+   MOVER JOGADOR
+------------------------- */
+
+game.addEventListener("mousemove", function(event) {
+
+    if (!gameRunning) return;
+
+    const rect = game.getBoundingClientRect();
+
+    playerX =
+        event.clientX -
+        rect.left -
+        player.offsetWidth / 2;
+
+    if (playerX < 0)
+        playerX = 0;
+
+    if (playerX > game.clientWidth - player.offsetWidth)
+        playerX = game.clientWidth - player.offsetWidth;
+
+    player.style.left = playerX + "px";
+});
+
+/* -------------------------
+   ATIRAR
+------------------------- */
+
+game.addEventListener("click", function(event) {
+
+    if (!gameRunning) return;
+
+    const rect = game.getBoundingClientRect();
+
+    const x =
+        event.clientX - rect.left;
+
+    shoot(x);
+});
+
+function shoot(x) {
+
+    const bullet = document.createElement("div");
+
+    bullet.className = "bullet";
+
+    bullet.style.left =
+        (playerX + player.offsetWidth / 2 - 3) + "px";
+
+    bullet.style.top =
+        (player.offsetTop - 15) + "px";
+
+    game.appendChild(bullet);
+
+    bullets.push({
+        element: bullet,
+        x: playerX + player.offsetWidth / 2,
+        y: player.offsetTop - 15,
+        targetX: x
+    });
+}
+
+/* -------------------------
+   CRIAR INIMIGOS
+------------------------- */
+
+function createEnemy() {
+
+    if (!gameRunning) return;
+
+    const enemy = document.createElement("div");
+
+    enemy.className = "enemy";
+
+    const x =
+        Math.random() *
+        (game.clientWidth - 50);
+
+    enemy.style.left = x + "px";
+    enemy.style.top = "-60px";
+
+    game.appendChild(enemy);
+
+    enemies.push({
+        element: enemy,
+        x: x,
+        y: -60,
+        speed: 1.5 + Math.random() * 2
+    });
+}
+
+/* -------------------------
+   COLISÃO
+------------------------- */
+
+function collision(a, b) {
+
+    const r1 = a.getBoundingClientRect();
+    const r2 = b.getBoundingClientRect();
+
+    return !(
+        r1.right < r2.left ||
+        r1.left > r2.right ||
+        r1.bottom < r2.top ||
+        r1.top > r2.bottom
+    );
+}
+
+/* -------------------------
+   GAME LOOP
+------------------------- */
+
+function loop() {
+
+    if (!gameRunning) return;
+
+    /* BALAS */
+
+    bullets.forEach((bullet, bi) => {
+
+        bullet.y -= 9;
+
+        /*
+          Pequeno desvio horizontal
+          para dar sensação de direção.
+        */
+        bullet.x +=
+            (bullet.targetX - bullet.x) * 0.015;
+
+        bullet.element.style.top =
+            bullet.y + "px";
+
+        bullet.element.style.left =
+            bullet.x + "px";
+
+        /* Saiu da tela */
+
+        if (bullet.y < -30) {
+
+            bullet.element.remove();
+            bullets.splice(bi, 1);
+
+            return;
+        }
+
+        /* Colisão com inimigos */
+
+        enemies.forEach((enemy, ei) => {
+
+            if (
+                bullet.element.parentElement &&
+                enemy.element.parentElement &&
+                collision(
+                    bullet.element,
+                    enemy.element
+                )
+            ) {
+
+                bullet.element.remove();
+                enemy.element.remove();
+
+                bullets.splice(bi, 1);
+                enemies.splice(ei, 1);
+
+                score += 10;
+
+                scoreText.textContent = score;
+            }
+        });
+
+    });
+
+    /* INIMIGOS */
+
+    enemies.forEach((enemy, ei) => {
+
+        enemy.y += enemy.speed;
+
+        enemy.element.style.top =
+            enemy.y + "px";
+
+        /* Inimigo chegou ao jogador */
+
+        if (
+            enemy.y >
+            game.clientHeight - 80
+        ) {
+
+            enemy.element.remove();
+
+            enemies.splice(ei, 1);
+
+            lives--;
+
+            livesText.textContent = lives;
+
+            if (lives <= 0) {
+                endGame();
+            }
+        }
+    });
+
+    requestAnimationFrame(loop);
+}
+
+/* -------------------------
+   GERAR INIMIGOS
+------------------------- */
+
+setInterval(function() {
+
+    if (gameRunning) {
+        createEnemy();
+    }
+
+}, 900);
+
+/* -------------------------
+   GAME OVER
+------------------------- */
+
+function endGame() {
+
+    gameRunning = false;
+
+    finalScore.textContent = score;
+
+    gameOverScreen.style.display = "flex";
+}
+
+/* -------------------------
+   REINICIAR
+------------------------- */
+
+function restart() {
+
+    enemies.forEach(enemy => {
+        enemy.element.remove();
+    });
+
+    bullets.forEach(bullet => {
+        bullet.element.remove();
+    });
+
+    enemies = [];
+    bullets = [];
+
+    score = 0;
+    lives = 3;
+    playerX = 375;
+
+    scoreText.textContent = score;
+    livesText.textContent = lives;
+
+    player.style.left = playerX + "px";
+
+    gameOverScreen.style.display = "none";
+
+    gameRunning = true;
+
+    requestAnimationFrame(loop);
+}
+
+/* COMEÇAR */
+
+loop();
+
+</script>
+
+</body>
+</html>
